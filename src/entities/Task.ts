@@ -1,6 +1,10 @@
+// Importa las entidades necesarias
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from "typeorm";
 import { User } from "./User";
 import { Team } from "./Team";
+import { StatusHistory } from "./StatusHistory"; 
+import { TaskTag } from "./TaskTag";           
+import { Comment } from "./Comment";         
 
 // Enums para los estados y prioridades
 export enum TaskStatus {
@@ -18,6 +22,8 @@ export enum TaskPriority {
 
 @Entity("tasks")
 export class Task {
+
+  // --- Columnas ---
   @PrimaryGeneratedColumn()
   id!: number;
 
@@ -44,6 +50,14 @@ export class Task {
   @Column({ nullable: true })
   dueDate?: Date;
 
+  @CreateDateColumn()
+  createdAt!: Date;
+
+  @UpdateDateColumn()
+  updatedAt!: Date;
+
+  // --- Relaciones ---
+
   @ManyToOne(() => Team)
   @JoinColumn({ name: "team_id" })
   team!: Team;
@@ -51,14 +65,12 @@ export class Task {
   @Column({ name: "team_id" })
   teamId!: number;
 
-  // Propietario de la tarea
   @ManyToOne(() => User)
   @JoinColumn({ name: "created_by" })
   createdBy!: User;
 
   @Column({ name: "created_by" })
   createdById!: number;
-
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: "assigned_to" })
@@ -67,13 +79,16 @@ export class Task {
   @Column({ name: "assigned_to", nullable: true })
   assignedToId?: number;
 
-  @OneToMany("Comment", "task")
+  // --- Relaciones Inversas (Uno-a-Muchos) ---
+
+  @OneToMany(() => Comment, (comment) => comment.task)
   comments!: Comment[];
 
-  @CreateDateColumn()
-  createdAt!: Date;
+  // 1. Corregido: Relación con StatusHistory (movida dentro de la clase)
+  @OneToMany(() => StatusHistory, (history) => history.task)
+  statusHistory!: StatusHistory[];
 
-  @UpdateDateColumn()
-  updatedAt!: Date;
+  // 2. Corregido: Relación con TaskTag (en lugar de ManyToMany con Tag)
+  @OneToMany(() => TaskTag, (taskTag) => taskTag.task)
+  taskTags!: TaskTag[];
 }
-import type { Comment } from "./Comment";

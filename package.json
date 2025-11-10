@@ -7,7 +7,8 @@
     "start": "node dist/index.js",
     "build": "tsc -p tsconfig.json",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "typeorm": "typeorm-ts-node-commonjs",
+    "typeorm": "ts-node ./node_modules/typeorm/cli.js",
+    
     "db:migrate": "npm run typeorm migration:run -- -d src/config/database.ts",
     "db:seed": "ts-node src/database/seeds/run-seeds.ts",
     "db:reset": "rm gestor_tareas.sqlite && npm run db:migrate && npm run db:seed"
