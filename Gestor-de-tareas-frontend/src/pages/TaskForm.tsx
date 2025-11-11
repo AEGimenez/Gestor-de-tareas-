@@ -3,26 +3,28 @@ import { useNavigate, Link, useParams } from 'react-router-dom';
 import { http } from '../utils/http';
 import { useUser } from '../context/UserContext';
 import { TaskStatus, TaskPriority, type Task } from '../types/task';
-import { getFullName } from '../types/user';
-import { CommentSection } from '../components/CommentSection'; 
-import { HistorySection } from '../components/HistorySection'; // <-- 1. IMPORTAR
+import { type TeamMembership } from '../types/team'; 
+import { getFullName, type User } from '../types/user'; 
+import { CommentSection } from '../components/CommentSection';
+import { HistorySection } from '../components/HistorySection';
 
-// (Lógica de Transiciones de Estado - Sigue igual)
+// --- FRAGMENTO 1 (Ahora sí se usará) ---
+// (Esta es la constante que te daba el error "is declared but its value is never read")
 const allowedTransitions: Record<TaskStatus, TaskStatus[]> = {
   [TaskStatus.PENDING]: [TaskStatus.IN_PROGRESS, TaskStatus.CANCELLED],
   [TaskStatus.IN_PROGRESS]: [TaskStatus.COMPLETED, TaskStatus.CANCELLED],
-  [TaskStatus.COMPLETED]: [],
-  [TaskStatus.CANCELLED]: [],
+  [TaskStatus.COMPLETED]: [], // No se puede cambiar
+  [TaskStatus.CANCELLED]: [], // No se puede cambiar
 };
 
 export function TaskForm() {
   const navigate = useNavigate();
-  const { currentUser, allUsers } = useUser();
+  const { currentUser, memberships } = useUser(); 
   const { id } = useParams();
   const isEditMode = Boolean(id);
-  const taskIdAsNumber = Number(id); 
+  const taskIdAsNumber = Number(id);
 
-  // (Todos tus estados del formulario (taskData, title, etc) siguen igual)
+  // (Estados del formulario)
   const [taskData, setTaskData] = useState<Task | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -30,12 +32,16 @@ export function TaskForm() {
   const [priority, setPriority] = useState(TaskPriority.MEDIUM);
   const [dueDate, setDueDate] = useState("");
   const [assignedToId, setAssignedToId] = useState("");
-  const [teamId, setTeamId] = useState("1");
+  const [teamId, setTeamId] = useState(""); 
+  
+  const [teamMembers, setTeamMembers] = useState<User[]>([]);
+  const [isMembersLoading, setIsMembersLoading] = useState(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // (Tu useEffect para cargar datos en Modo Edición sigue igual)
+  // (useEffect para cargar datos en Modo Edición - Sigue igual)
   useEffect(() => {
     if (isEditMode && id) {
       setIsLoading(true);
@@ -59,42 +65,76 @@ export function TaskForm() {
     }
   }, [id, isEditMode]);
 
+  // (useEffect para setear team por defecto - Sigue igual)
+  useEffect(() => {
+    if (!isEditMode && memberships.length > 0 && memberships[0].team) {
+      setTeamId(memberships[0].team.id.toString());
+    }
+  }, [isEditMode, memberships]);
+
+  // (useEffect para cargar miembros del equipo - Sigue igual)
+  useEffect(() => {
+    if (!teamId) {
+      setTeamMembers([]);
+      setAssignedToId(""); 
+      return;
+    }
+    async function fetchTeamMembers() {
+      setIsMembersLoading(true);
+      try {
+        const response = await http.get<{ data: TeamMembership[] }>(
+          `/memberships/team/${teamId}`
+        );
+        const members = response.data
+          .map(m => m.user)
+          .filter(Boolean) as User[]; 
+
+        setTeamMembers(members);
+
+        if (assignedToId && !members.some(m => m.id === Number(assignedToId))) {
+          setAssignedToId("");
+        }
+
+      } catch (err) {
+        console.error("Error al cargar miembros del equipo:", err);
+        setTeamMembers([]);
+      } finally {
+        setIsMembersLoading(false);
+      }
+    }
+    fetchTeamMembers();
+  }, [teamId, assignedToId]); // (Añadimos assignedToId a la dependencia por si acaso)
+
+
   // (Lógica de Tarea Finalizada - Sigue igual)
   const isTaskFinalized = 
     taskData?.status === TaskStatus.COMPLETED || 
     taskData?.status === TaskStatus.CANCELLED;
 
-  // (Lógica de handleSubmit (POST/PATCH) - Sigue igual)
+  // (handleSubmit - Sigue igual)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting || !currentUser) return;
-    
-    // ... (Validaciones de título, etc.)
+    if (!title.trim()) { setError("El título es obligatorio."); return; }
+    if (!teamId) { setError("Debes seleccionar un equipo."); return; }
 
     setIsSubmitting(true);
     setError(null);
 
     try {
       if (isEditMode) {
-        // --- CAMBIO EN EL PAYLOAD DE EDICIÓN ---
         const payload = {
-          title,
-          description,
-          status,
-          priority,
+          title, description, status, priority,
           dueDate: dueDate || null,
           assignedToId: assignedToId ? Number(assignedToId) : null,
           teamId: Number(teamId),
-          changedById: currentUser.id // <-- ¡Añadimos quién hizo el cambio!
+          changedById: currentUser.id
         };
-        // --- FIN DEL CAMBIO ---
-        
         await http.patch(`/tasks/${id}`, payload);
         alert("¡Tarea actualizada exitosamente!");
         navigate('/tasks');
         
       } else {
-        // (El payload de Creación sigue igual)
         const payload = {
           title, description, status, priority,
           dueDate: dueDate || null,
@@ -102,21 +142,21 @@ export function TaskForm() {
           teamId: Number(teamId),
           createdById: currentUser.id
         };
-
         await http.post('/tasks', payload);
         alert("¡Tarea creada exitosamente!");
         navigate('/tasks');
       }
-
     } catch (err) {
-      // ... (tu catch sigue igual)
+      const errorMsg = err instanceof Error ? err.message : "Error desconocido";
+      setError(errorMsg);
+      alert(`Error al guardar: ${errorMsg}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
 
-  if (isLoading) return <div style={{ padding: '2rem' }}>Cargando tarea...</div>;
+  if (isLoading && isEditMode) return <div style={{ padding: '2rem' }}>Cargando tarea...</div>;
 
   return (
     <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
@@ -128,36 +168,65 @@ export function TaskForm() {
         {isEditMode ? `Editar Tarea #${id}` : 'Crear Nueva Tarea'}
       </h2>
 
+      {/* --- FRAGMENTO 2 CORREGIDO --- */}
+      {/* (Aquí estaba el error "Expression expected") */}
       {isTaskFinalized && (
         <div style={{ padding: '1rem', backgroundColor: '#FEF3C7', border: '1px solid #FDE68A', color: '#92400E', borderRadius: '6px', marginBottom: '1rem' }}>
           ⚠️ Esta tarea está finalizada o cancelada. Solo se pueden editar comentarios y etiquetas (próximamente).
         </div>
       )}
 
-      {/* --- (El formulario <form> sigue exactamente igual) --- */}
       <form 
         onSubmit={handleSubmit} 
         style={{ backgroundColor: 'white', padding: '1.5rem 2rem', borderRadius: '8px', border: '1px solid #E5E7EB' }}
       >
-        {/* ... (Todos los inputs: Título, Descripción, Status, Prioridad, etc.) ... */}
-        {/* Título */}
+        {/* ... (Título, Descripción, Equipo siguen igual) ... */}
         <div style={{ marginBottom: '1rem' }}>
           <label htmlFor="title" style={labelStyle}>Título *</label>
           <input type="text" id="title" value={title} onChange={(e) => setTitle(e.target.value)} disabled={isTaskFinalized} style={inputStyle} />
         </div>
-        {/* Descripción */}
         <div style={{ marginBottom: '1rem' }}>
           <label htmlFor="description" style={labelStyle}>Descripción</label>
           <textarea id="description" rows={5} value={description} onChange={(e) => setDescription(e.target.value)} disabled={isTaskFinalized} style={inputStyle} />
         </div>
-        {/* Fila Status y Prioridad */}
+        <div style={{ marginBottom: '1rem' }}>
+          <label htmlFor="teamId" style={labelStyle}>Equipo *</label>
+          <select 
+            id="teamId" 
+            value={teamId} 
+            onChange={(e) => setTeamId(e.target.value)} 
+            disabled={isTaskFinalized || (isLoading && !isEditMode)}
+            style={inputStyle}
+          >
+            <option value="">Seleccionar un equipo...</option>
+            {memberships
+              .filter(m => m.team) 
+              .map(m => (
+                <option key={m.team!.id} value={m.team!.id}>
+                  {m.team!.name}
+                </option>
+            ))}
+          </select>
+        </div>
+        
+        {/* Fila de Status y Prioridad */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
           <div>
             <label htmlFor="status" style={labelStyle}>Estado *</label>
-            <select id="status" value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)} disabled={isTaskFinalized} style={inputStyle}>
+            {/* --- FRAGMENTO 1 CORREGIDO --- */}
+            {/* (Aquí es donde 'allowedTransitions' se USA) */}
+            <select 
+              id="status" 
+              value={status} 
+              onChange={(e) => setStatus(e.target.value as TaskStatus)} 
+              disabled={isTaskFinalized} 
+              style={inputStyle}
+            >
               {isEditMode ? (
                 <>
+                  {/* Muestra el estado actual como la opción seleccionada */}
                   <option value={taskData?.status}>{status}</option> 
+                  {/* Mapea solo las transiciones permitidas */}
                   {allowedTransitions[taskData?.status ?? TaskStatus.PENDING].map(s => (
                     <option key={s} value={s}>{s}</option>
                   ))}
@@ -179,14 +248,25 @@ export function TaskForm() {
             </select>
           </div>
         </div>
-        {/* Fila Asignado y Vence */}
+
+        {/* Fila de Asignado y Vence */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
           <div>
             <label htmlFor="assignedToId" style={labelStyle}>Asignado a</label>
-            <select id="assignedToId" value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)} disabled={isTaskFinalized} style={inputStyle}>
-              <option value="">Sin asignar</option>
-              {allUsers.map(user => (
-                <option key={user.id} value={user.id}>{getFullName(user)}</option>
+            <select 
+              id="assignedToId" 
+              value={assignedToId} 
+              onChange={(e) => setAssignedToId(e.target.value)} 
+              disabled={isTaskFinalized || !teamId || isMembersLoading} 
+              style={inputStyle}
+            >
+              <option value="">
+                {isMembersLoading ? "Cargando miembros..." : (teamId ? "Sin asignar" : "Selecciona un equipo primero")}
+              </option>
+              {teamMembers.map(user => (
+                <option key={user.id} value={user.id}>
+                  {getFullName(user)}
+                </option>
               ))}
             </select>
           </div>
@@ -196,9 +276,8 @@ export function TaskForm() {
           </div>
         </div>
 
+        {/* ... (Botones de Acción y Error) ... */}
         {error && ( <div style={{ color: 'red', marginBottom: '1rem', fontWeight: 'bold' }}> Error: {error} </div> )}
-        
-        {/* Botones de Acción */}
         <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
           <button type="button" onClick={() => navigate('/tasks')} style={{ padding: '0.5rem 1rem', backgroundColor: '#F3F4F6', border: '1px solid #D1D5DB', borderRadius: '6px', cursor: 'pointer' }}>
             {isTaskFinalized ? "Cerrar" : "Cancelar"}
@@ -211,13 +290,10 @@ export function TaskForm() {
         </div>
       </form>
 
-      {/* --- SECCIONES DE DETALLE --- */}
+      {/* --- (Secciones de Comentarios e Historial - Siguen igual) --- */}
       {isEditMode && (
         <>
-          {/* Sección de Comentarios (Ya funciona) */}
           <CommentSection taskId={taskIdAsNumber} />
-
-          {/* --- 2. INTEGRAR LA SECCIÓN DE HISTORIAL --- */}
           <HistorySection taskId={taskIdAsNumber} />
         </>
       )}
@@ -225,7 +301,7 @@ export function TaskForm() {
   );
 }
 
-// (Estilos reusables para el formulario)
+// (Estilos reusables para el formulario - Siguen igual)
 const labelStyle: React.CSSProperties = {
   display: 'block',
   fontWeight: '500',
