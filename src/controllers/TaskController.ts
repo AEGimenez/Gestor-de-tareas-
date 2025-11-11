@@ -58,12 +58,24 @@ export class TaskController {
   static async update(req: Request, res: Response) {
     try {
       const id = parseInt(req.params.id);
-      const updates = req.body;
       
+      // --- CAMBIO AQUÍ ---
+      // 'updates' contendrá todo (title, desc, status, changedById)
+      const updates = req.body; 
+      
+      // Extraemos el changedById (quién edita) del cuerpo
+      const { changedById } = req.body;
+      
+      // Validación: Necesitamos saber quién hizo el cambio
+      if (!changedById) {
+        return res.status(400).json({ message: "No se proporcionó el ID del usuario que realiza el cambio (changedById)." });
+      }
+      // --- FIN DEL CAMBIO ---
+
       const taskService = new TaskService();
 
-      // (Lógica en el servicio)
-      const updatedTask = await taskService.updateTask(id, updates);
+      // Pasamos el ID del usuario al servicio
+      const updatedTask = await taskService.updateTask(id, updates, changedById);
 
       res.json(updatedTask);
 

@@ -118,4 +118,45 @@ export class TeamMembershipController {
       });
     }
   }
+
+  static async removeMember(req: Request, res: Response) {
+    try {
+      const { teamId, userId } = req.params;
+      
+      const membershipRepository = AppDataSource.getRepository(TeamMembership);
+
+      // Buscar la membresía específica
+      const membership = await membershipRepository.findOne({
+        where: { 
+          teamId: parseInt(teamId), 
+          userId: parseInt(userId) 
+        }
+      });
+
+      if (!membership) {
+        return res.status(404).json({
+          message: "Membresía no encontrada. El usuario no pertenece a este equipo."
+        });
+      }
+
+      // REGLA DE NEGOCIO (Según Épica 3.5): No permitir que un Propietario se elimine
+      if (membership.role === MemberRole.OWNER) {
+        return res.status(400).json({
+          message: "No se puede eliminar al propietario del equipo."
+        });
+      }
+
+      // Eliminar la membresía
+      await membershipRepository.remove(membership);
+      
+      // Devolver 204 (No Content) que es estándar para un DELETE exitoso
+      res.status(204).send(); 
+
+    } catch (error) {
+      res.status(500).json({
+        message: "Error al eliminar miembro del equipo",
+        error
+      });
+    }
+  }
 }

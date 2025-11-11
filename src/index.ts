@@ -16,6 +16,8 @@ import teamRoutes from "./routes/teamRoutes";
 import taskRoutes from "./routes/taskRoutes";
 import commentRoutes from "./routes/commentRoutes";
 import membershipRoutes from "./routes/teamMembershipRoutes";
+// --- (AQUÍ ESTÁ EL CAMBIO 1) ---
+import statusHistoryRoutes from "./routes/statusHistoryRoutes";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -39,6 +41,8 @@ app.use("/teams", teamRoutes);
 app.use("/tasks", taskRoutes);
 app.use("/comments", commentRoutes);
 app.use("/memberships", membershipRoutes);
+// --- (AQUÍ ESTÁ EL CAMBIO 2) ---
+app.use("/history", statusHistoryRoutes);
 
 // Probar conexión a la base de datos
 app.get("/test-db", async (req, res) => {
