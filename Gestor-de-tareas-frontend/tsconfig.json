@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"],
+    "skipLibCheck": true,
+    "jsx": "react-jsx", // <-- AÑADIDO: Importante para React 17+
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+    // Tus otras reglas de linting están bien
+  },
+  // --- CORRECCIÓN CLAVE ---
+  // Le decimos a TS que incluya todo en 'src' Y también
+  // cualquier archivo .d.ts en la carpeta 'src'.
+  "include": ["src", ".."] 
+}
