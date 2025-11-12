@@ -7,14 +7,14 @@ import { type TeamMembership } from '../types/team';
 import { getFullName, type User } from '../types/user'; 
 import { CommentSection } from '../components/CommentSection';
 import { HistorySection } from '../components/HistorySection';
+import { TagSection } from '../components/TagSection';
 
-// --- FRAGMENTO 1 (Ahora sí se usará) ---
-// (Esta es la constante que te daba el error "is declared but its value is never read")
+// (Esta constante ahora se usará correctamente)
 const allowedTransitions: Record<TaskStatus, TaskStatus[]> = {
   [TaskStatus.PENDING]: [TaskStatus.IN_PROGRESS, TaskStatus.CANCELLED],
   [TaskStatus.IN_PROGRESS]: [TaskStatus.COMPLETED, TaskStatus.CANCELLED],
-  [TaskStatus.COMPLETED]: [], // No se puede cambiar
-  [TaskStatus.CANCELLED]: [], // No se puede cambiar
+  [TaskStatus.COMPLETED]: [],
+  [TaskStatus.CANCELLED]: [],
 };
 
 export function TaskForm() {
@@ -24,7 +24,6 @@ export function TaskForm() {
   const isEditMode = Boolean(id);
   const taskIdAsNumber = Number(id);
 
-  // (Estados del formulario)
   const [taskData, setTaskData] = useState<Task | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -32,16 +31,14 @@ export function TaskForm() {
   const [priority, setPriority] = useState(TaskPriority.MEDIUM);
   const [dueDate, setDueDate] = useState("");
   const [assignedToId, setAssignedToId] = useState("");
-  const [teamId, setTeamId] = useState(""); 
-  
+  const [teamId, setTeamId] = useState("");
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [isMembersLoading, setIsMembersLoading] = useState(false);
-
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Carga de la tarea en modo edición
   const [error, setError] = useState<string | null>(null);
 
-  // (useEffect para cargar datos en Modo Edición - Sigue igual)
+  // useEffect para cargar datos en Modo Edición
   useEffect(() => {
     if (isEditMode && id) {
       setIsLoading(true);
@@ -62,17 +59,19 @@ export function TaskForm() {
         .finally(() => {
           setIsLoading(false);
         });
+    } else {
+      setIsLoading(false); // Estamos en modo CREACIÓN, no hay nada que cargar
     }
   }, [id, isEditMode]);
 
-  // (useEffect para setear team por defecto - Sigue igual)
+  // useEffect para setear team por defecto (en Modo Creación)
   useEffect(() => {
     if (!isEditMode && memberships.length > 0 && memberships[0].team) {
       setTeamId(memberships[0].team.id.toString());
     }
   }, [isEditMode, memberships]);
 
-  // (useEffect para cargar miembros del equipo - Sigue igual)
+  // useEffect para cargar miembros del equipo (cuando 'teamId' cambia)
   useEffect(() => {
     if (!teamId) {
       setTeamMembers([]);
@@ -85,13 +84,12 @@ export function TaskForm() {
         const response = await http.get<{ data: TeamMembership[] }>(
           `/memberships/team/${teamId}`
         );
-        const members = response.data
-          .map(m => m.user)
-          .filter(Boolean) as User[]; 
-
+        const members = response.data.map(m => m.user).filter(Boolean) as User[]; 
         setTeamMembers(members);
-
-        if (assignedToId && !members.some(m => m.id === Number(assignedToId))) {
+        
+        // Si el 'assignedToId' actual no está en la nueva lista, resetéalo
+        // (Excepto si estamos cargando los datos iniciales en modo edición)
+        if (assignedToId && !members.some(m => m.id === Number(assignedToId)) && !isLoading) {
           setAssignedToId("");
         }
 
@@ -103,15 +101,15 @@ export function TaskForm() {
       }
     }
     fetchTeamMembers();
-  }, [teamId, assignedToId]); // (Añadimos assignedToId a la dependencia por si acaso)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamId, isLoading]); // Depende de teamId (y de isLoading para la carga inicial)
 
-
-  // (Lógica de Tarea Finalizada - Sigue igual)
+  // Lógica de Tarea Finalizada
   const isTaskFinalized = 
     taskData?.status === TaskStatus.COMPLETED || 
     taskData?.status === TaskStatus.CANCELLED;
 
-  // (handleSubmit - Sigue igual)
+  // Lógica de handleSubmit (Crear o Editar)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting || !currentUser) return;
@@ -123,6 +121,7 @@ export function TaskForm() {
 
     try {
       if (isEditMode) {
+        // Lógica PATCH (Editar)
         const payload = {
           title, description, status, priority,
           dueDate: dueDate || null,
@@ -135,6 +134,7 @@ export function TaskForm() {
         navigate('/tasks');
         
       } else {
+        // Lógica POST (Crear)
         const payload = {
           title, description, status, priority,
           dueDate: dueDate || null,
@@ -156,7 +156,7 @@ export function TaskForm() {
   };
 
 
-  if (isLoading && isEditMode) return <div style={{ padding: '2rem' }}>Cargando tarea...</div>;
+  if (isLoading) return <div style={{ padding: '2rem' }}>Cargando tarea...</div>;
 
   return (
     <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
@@ -168,27 +168,31 @@ export function TaskForm() {
         {isEditMode ? `Editar Tarea #${id}` : 'Crear Nueva Tarea'}
       </h2>
 
-      {/* --- FRAGMENTO 2 CORREGIDO --- */}
-      {/* (Aquí estaba el error "Expression expected") */}
+      {/* (Bloque de Tarea Finalizada - Corregido) */}
       {isTaskFinalized && (
         <div style={{ padding: '1rem', backgroundColor: '#FEF3C7', border: '1px solid #FDE68A', color: '#92400E', borderRadius: '6px', marginBottom: '1rem' }}>
-          ⚠️ Esta tarea está finalizada o cancelada. Solo se pueden editar comentarios y etiquetas (próximamente).
+          ⚠️ Esta tarea está finalizada o cancelada. Solo se pueden editar comentarios y etiquetas.
         </div>
       )}
 
+      {/* --- EL FORMULARIO COMPLETO --- */}
       <form 
         onSubmit={handleSubmit} 
         style={{ backgroundColor: 'white', padding: '1.5rem 2rem', borderRadius: '8px', border: '1px solid #E5E7EB' }}
       >
-        {/* ... (Título, Descripción, Equipo siguen igual) ... */}
+        {/* Título */}
         <div style={{ marginBottom: '1rem' }}>
           <label htmlFor="title" style={labelStyle}>Título *</label>
           <input type="text" id="title" value={title} onChange={(e) => setTitle(e.target.value)} disabled={isTaskFinalized} style={inputStyle} />
         </div>
+        
+        {/* Descripción */}
         <div style={{ marginBottom: '1rem' }}>
           <label htmlFor="description" style={labelStyle}>Descripción</label>
           <textarea id="description" rows={5} value={description} onChange={(e) => setDescription(e.target.value)} disabled={isTaskFinalized} style={inputStyle} />
         </div>
+        
+        {/* Selector de Equipo */}
         <div style={{ marginBottom: '1rem' }}>
           <label htmlFor="teamId" style={labelStyle}>Equipo *</label>
           <select 
@@ -213,8 +217,7 @@ export function TaskForm() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
           <div>
             <label htmlFor="status" style={labelStyle}>Estado *</label>
-            {/* --- FRAGMENTO 1 CORREGIDO --- */}
-            {/* (Aquí es donde 'allowedTransitions' se USA) */}
+            {/* (Select de Estado - Corregido) */}
             <select 
               id="status" 
               value={status} 
@@ -224,9 +227,7 @@ export function TaskForm() {
             >
               {isEditMode ? (
                 <>
-                  {/* Muestra el estado actual como la opción seleccionada */}
                   <option value={taskData?.status}>{status}</option> 
-                  {/* Mapea solo las transiciones permitidas */}
                   {allowedTransitions[taskData?.status ?? TaskStatus.PENDING].map(s => (
                     <option key={s} value={s}>{s}</option>
                   ))}
@@ -253,6 +254,7 @@ export function TaskForm() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
           <div>
             <label htmlFor="assignedToId" style={labelStyle}>Asignado a</label>
+            {/* (Select de Asignado - Corregido) */}
             <select 
               id="assignedToId" 
               value={assignedToId} 
@@ -276,7 +278,7 @@ export function TaskForm() {
           </div>
         </div>
 
-        {/* ... (Botones de Acción y Error) ... */}
+        {/* Botones de Acción y Error */}
         {error && ( <div style={{ color: 'red', marginBottom: '1rem', fontWeight: 'bold' }}> Error: {error} </div> )}
         <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
           <button type="button" onClick={() => navigate('/tasks')} style={{ padding: '0.5rem 1rem', backgroundColor: '#F3F4F6', border: '1px solid #D1D5DB', borderRadius: '6px', cursor: 'pointer' }}>
@@ -290,9 +292,10 @@ export function TaskForm() {
         </div>
       </form>
 
-      {/* --- (Secciones de Comentarios e Historial - Siguen igual) --- */}
-      {isEditMode && (
+      {/* --- SECCIONES DE DETALLE --- */}
+      {isEditMode && taskData && (
         <>
+          <TagSection task={taskData} isTaskFinalized={isTaskFinalized} />
           <CommentSection taskId={taskIdAsNumber} />
           <HistorySection taskId={taskIdAsNumber} />
         </>

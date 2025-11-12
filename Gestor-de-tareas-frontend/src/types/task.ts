@@ -1,12 +1,13 @@
 // src/types/task.ts
 import { type User } from './user';
 import { type Team } from './team';
-import { type Tag } from './tag';
+import { type TaskTag } from './tag'; // <-- Importa el tipo que acabamos de crear
+import { type Comment } from './comment'; // <-- Importa el tipo de comentario (del paso anterior)
+import { type StatusHistory } from './history'; // <-- Importa el tipo de historial (del paso anterior)
 
 // --- ENUMS ---
-// Copiados 1:1 de tu backend/entities/Task.ts
-// Esto es crucial para los filtros y la lógica de negocio.
-
+// (Copiados 1:1 de tu backend/entities/Task.ts)
+// Esto soluciona el error "Cannot find name 'TaskStatus'"
 export enum TaskStatus {
   PENDING = "pendiente",
   IN_PROGRESS = "en_curso", 
@@ -22,33 +23,28 @@ export enum TaskPriority {
 
 // --- INTERFAZ ---
 // Mapea la clase Task de TypeORM a una interfaz de Frontend
-
 export interface Task {
   id: number;
   title: string;
-  description?: string; // Es nullable en el backend
+  description?: string;
   status: TaskStatus;
   priority: TaskPriority;
-  dueDate?: string;     // Las fechas de la API siempre como string
+  dueDate?: string;
   createdAt: string;
   updatedAt: string;
   
-  // IDs de relaciones
+  // IDs
   teamId: number;
   createdById: number;
-  assignedToId?: number; // Es nullable en el backend
+  assignedToId?: number;
 
   // Relaciones populadas (que el backend nos envía)
-  // Tu TaskController.ts confirma que estas se cargan
   team?: Team;
   createdBy?: User;
   assignedTo?: User;
   
-  // Relaciones anidadas (para la vista de detalle)
-  // El backend usa TaskTag, pero el frontend solo necesita la lista de Tags
-  tags?: Tag[]; 
-  
-  // TODO: Agregaremos Comment e StatusHistory aquí cuando creemos esos tipos
-  // comments?: Comment[]; 
-  // statusHistory?: StatusHistory[];
+  // Relaciones anidadas (que el backend nos envía)
+  taskTags?: TaskTag[]; 
+  comments?: Comment[]; 
+  statusHistory?: StatusHistory[];
 }
