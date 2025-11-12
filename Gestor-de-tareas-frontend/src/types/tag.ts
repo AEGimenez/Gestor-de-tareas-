@@ -2,7 +2,7 @@
 
 /**
  * Interfaz para la entidad Tag
- * (Basado en tu backend/entities/Tag.ts que vimos)
+ * (Basado en tu backend/entities/Tag.ts)
  */
 export interface Tag {
   id: number;
@@ -11,7 +11,8 @@ export interface Tag {
 
 /**
  * Interfaz para la tabla intermedia TaskTag
- * (Basada en tu backend/entities/TaskTag.ts)
+ * (Basada en tu backend/entities/TaskTag.ts y lo que nos
+ * devuelve el endpoint GET /tasks/:id)
  */
 export interface TaskTag {
   id: number;

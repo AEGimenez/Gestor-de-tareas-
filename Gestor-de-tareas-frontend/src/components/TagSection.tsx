@@ -37,13 +37,15 @@ function TagChip({ tag, onRemove }: { tag: Tag, onRemove: (tagId: number) => voi
 }
 
 // Componente principal de la sección
-export function TagSection({ task, isTaskFinalized }: { task: Task, isTaskFinalized: boolean }) {
+export function TagSection({ task }: { task: Task }) {
+  
   // Lista de todas las etiquetas disponibles en el sistema (para el dropdown)
   const [allTags, setAllTags] = useState<Tag[]>([]);
   
   // Lista de las etiquetas *actualmente asignadas* a esta tarea
   const [assignedTags, setAssignedTags] = useState<Tag[]>(() => {
     // Inicializamos con las etiquetas que vienen en la tarea
+    // (Gracias al cambio en TaskController, task.taskTags existe)
     return task.taskTags?.map(tt => tt.tag) || [];
   });
   
