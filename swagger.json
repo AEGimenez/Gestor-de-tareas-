@@ -1,0 +1,47 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Gestor de Tareas API",
+    "description": "API REST para la gestión de tareas, equipos y usuarios.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Servidor de Desarrollo"
+    }
+  ],
+  "paths": {
+    "/users": {
+      "get": {
+        "summary": "Listar todos los usuarios",
+        "tags": ["Usuarios"],
+        "responses": {
+          "200": {
+            "description": "Una lista de usuarios"
+          }
+        }
+      },
+      "post": {
+        "summary": "Crear un nuevo usuario",
+        "tags": ["Usuarios"],
+        "responses": {
+          "201": {
+            "description": "Usuario creado"
+          }
+        }
+      }
+    },
+    "/tasks": {
+      "get": {
+        "summary": "Listar todas las tareas",
+        "tags": ["Tareas"],
+        "responses": {
+          "200": {
+            "description": "Una lista de tareas"
+          }
+        }
+      }
+    }
+  }
+}

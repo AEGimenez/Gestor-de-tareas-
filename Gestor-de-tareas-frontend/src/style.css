@@ -1,0 +1,62 @@
+/* src/style.css */
+
+/* --- 1. Configuración Global (Tu :root) --- */
+/* (Mantenemos tu configuración de dark mode y fuentes) */
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* --- 2. Corrección del BODY --- */
+/* (Quitamos flex y center, mantenemos el margin: 0) */
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+/* --- 3. Corrección del #APP --- */
+/* (Quitamos el max-width, padding, margin y text-align) */
+/* Ahora #app es solo un contenedor invisible que 
+   ocupa el 100% del ancho */
+
+
+/* --- 4. Estilos básicos (Opcional, pero recomendado) --- */
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+h1, h2, h3, h4, h5, h6, p {
+  margin: 0; /* Reseteo de márgenes para texto */
+}
+
+/* --- 5. Media Query (Mantenemos tu bloque light mode) --- */
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+}
+
+/* NOTA: Los estilos para .logo, .card, .read-the-docs, 
+  y button han sido eliminados porque pertenecían 
+  a la demo de Vite (main.ts) que ya borramos.
+*/
