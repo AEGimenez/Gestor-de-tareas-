@@ -17,7 +17,7 @@ import commentRoutes from "./routes/commentRoutes";
 import membershipRoutes from "./routes/teamMembershipRoutes";
 import statusHistoryRoutes from "./routes/statusHistoryRoutes";
 import tagRoutes from "./routes/tagRoutes";
-import activityRoutes from "./routes/activityRoutes"; // <-- 1. IMPORTAR RUTA
+import activityRoutes from "./routes/activityRoutes"; 
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,6 +33,7 @@ app.get("/", (req, res) => {
 });
 
 // --- Rutas de tu API ---
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use("/users", userRoutes);
 app.use("/teams", teamRoutes);
 app.use("/tasks", taskRoutes);
