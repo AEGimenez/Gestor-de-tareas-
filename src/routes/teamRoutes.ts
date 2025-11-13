@@ -15,4 +15,7 @@ router.delete("/:id", TeamController.delete);
 //Actualizar un equipo
 router.patch('/:id', TeamController.update);
 
+
+router.get("/user/:userId", TeamController.getTeamsForUser); // O una ruta similar
+
 export default router;

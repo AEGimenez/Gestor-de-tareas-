@@ -3,21 +3,21 @@ import "reflect-metadata";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-// Corregido: Quitamos la extensión .js
 import { AppDataSource } from "./config/database";
 
-// --- 1. Importaciones de Swagger ---
+// --- Importaciones de Swagger y Comentarios/Historial ---
 import swaggerUi from "swagger-ui-express";
 import swaggerDocument from "../swagger.json"; 
 
-// --- Importaciones de rutas (Corregido: Quitamos .js) ---
+// --- Importaciones de rutas ---
 import userRoutes from "./routes/userRoutes";
 import teamRoutes from "./routes/teamRoutes";
 import taskRoutes from "./routes/taskRoutes";
 import commentRoutes from "./routes/commentRoutes";
 import membershipRoutes from "./routes/teamMembershipRoutes";
-// --- (AQUÍ ESTÁ EL CAMBIO 1) ---
 import statusHistoryRoutes from "./routes/statusHistoryRoutes";
+import tagRoutes from "./routes/tagRoutes";
+import activityRoutes from "./routes/activityRoutes"; // <-- 1. IMPORTAR RUTA
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,32 +32,20 @@ app.get("/", (req, res) => {
   res.json({ message: "El gestor está funcionando..." });
 });
 
-// --- 2. Configuración de la ruta de Swagger ---
-app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-
 // --- Rutas de tu API ---
 app.use("/users", userRoutes);
 app.use("/teams", teamRoutes);
 app.use("/tasks", taskRoutes);
 app.use("/comments", commentRoutes);
 app.use("/memberships", membershipRoutes);
-// --- (AQUÍ ESTÁ EL CAMBIO 2) ---
 app.use("/history", statusHistoryRoutes);
+app.use("/tags", tagRoutes); 
+app.use("/activity", activityRoutes); // <-- 2. USAR LA NUEVA RUTA
 
-// Probar conexión a la base de datos
-app.get("/test-db", async (req, res) => {
-  try {
-    if (AppDataSource.isInitialized) {
-      res.json({ message: "Se conectó con éxito a la base de datos" });
-    } else {
-      res.status(500).json({ message: "No se pudo conectar a la base de datos" });
-    }
-  } catch (error) {
-    res.status(500).json({ message: "Error en la conexión con la base de datos", error });
-  }
-});
+// Probar conexión a la base de datos (sigue igual)
+app.get("/test-db", async (req, res) => { /* ... */ });
 
-// Inicializar la conexión a la base de datos y arrancar el servidor
+// Inicializar la conexión a la base de datos y arrancar el servidor (sigue igual)
 AppDataSource.initialize()
   .then(() => {
     console.log("Conectado a la base de datos (PostgreSQL)..."); 

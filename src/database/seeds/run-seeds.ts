@@ -24,7 +24,7 @@ async function runSeeds() {
     const users = AppDataSource.getRepository(User).create([
   { firstName: "Agustín", lastName: "Giménez", email: "agus@gestor.com", password: "123456" },
   { firstName: "Camila", lastName: "López", email: "camila@gestor.com", password: "123456" },
-  { firstName: "Mateo", lastName: "Fontaine", email: "mateo@gestor.com", password: "123456" },
+  { firstName: "Agustín", lastName: "Luporini", email: "agustin@gestor.com", password: "123456" },
     ]);
     await AppDataSource.getRepository(User).save(users);
     console.log("👤 Usuarios creados");

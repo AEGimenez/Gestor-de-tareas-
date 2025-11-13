@@ -1,159 +1,121 @@
 import { Request, Response } from "express";
-import { AppDataSource } from "../config/database";
-import { Comment } from "../entities/Comment";
-import { User } from "../entities/User";
-import { Task } from "../entities/Task";
+// ⭐️ IMPORTANTE: Ahora solo necesitamos importar el Service
+import { CommentService } from "../services/CommentService"; 
+
+// Instanciamos el servicio (puede ser en el constructor si no fuera un método estático)
+const commentService = new CommentService();
 
 export class CommentController {
+  
   // Crear comentario
+  // El controlador solo se encarga de la entrada/salida HTTP y de llamar al servicio.
   static async create(req: Request, res: Response) {
     try {
       const { content, taskId, authorId } = req.body;
       
-      //repositorios
-      const commentRepository = AppDataSource.getRepository(Comment);
-      const userRepository = AppDataSource.getRepository(User);
-      const taskRepository = AppDataSource.getRepository(Task);
-      
-      // Valida q exista la tarea
-      const task = await taskRepository.findOne({ where: { id: taskId } });
-      if (!task) {
-        return res.status(404).json({
-          message: "Tarea no encontrada"
-        });
+      // 1. Validar datos básicos
+      if (!content || !taskId || !authorId) {
+          return res.status(400).json({ message: "Faltan campos obligatorios (content, taskId, authorId)." });
       }
 
-      // Valida la existencia del usuario autor
-      const author = await userRepository.findOne({ where: { id: authorId } });
-      if (!author) {
-        return res.status(404).json({
-          message: "Usuario autor no encontrado"
-        });
-      }
-
-      // Crear un comentario nuevo
-      const newComment = commentRepository.create({
-        content,
-        taskId,
-        authorId
+      // 2. Llamar al Service, que maneja:
+      //    a) La validación de Tarea/Autor
+      //    b) El guardado del comentario
+      //    c) El Log de Actividad (COMMENT_ADDED)
+      const savedComment = await commentService.createComment({ 
+        content, 
+        taskId, 
+        authorId 
       });
 
-      // Guardar en la DB
-      const savedComment = await commentRepository.save(newComment);
-      
-      // Obtener el comentario y reponder 201 con el comentario creado
-      const commentWithRelations = await commentRepository.findOne({
-        where: { id: savedComment.id },
-        relations: ["task", "author"]
-      });
+      // Nota: Aquí podrías necesitar un método en el Service para buscar el comentario
+      // con las relaciones completas si el Service solo devuelve la entidad cruda.
       
       res.status(201).json({
-        message: "El comentario se creo con éxito",
-        data: commentWithRelations
+        message: "El comentario se creó con éxito (Actividad Registrada)",
+        data: savedComment,
       });
-    } catch (error) {
-      //si algo falla responde 500 con el error
-      res.status(500).json({
-        message: "Error al crear comentario", 
-        error
+      
+    } catch (error: any) {
+      // Manejo de errores del Service (ej. "Tarea no encontrada")
+      const statusCode = (error.message && error.message.includes("no encontrado")) ? 404 : 500;
+      res.status(statusCode).json({
+        message: "Error al crear comentario",
+        error: error.message,
       });
     }
   }
 
+  // --- MÉTODOS EXISTENTES (Mantener la referencia a la entidad si es necesario) ---
+  
   // Obtener comentarios de una tarea específica
+  // NOTA: Para limpiar el código, este método también debería ir en el CommentService.
   static async getByTask(req: Request, res: Response) {
     try {
       const { taskId } = req.params;
       
-      const commentRepository = AppDataSource.getRepository(Comment);
-      
-      const comments = await commentRepository.find({
-        where: { taskId: parseInt(taskId) },
-        relations: ["author", "task"],
-        order: { createdAt: "ASC" } 
-      });
+      const comments = await commentService.getCommentsByTaskId(parseInt(taskId)); // ⭐️ Asumiendo que creas este método
       
       res.json({
         message: "Los comentarios se obtuvieron con éxito",
-        data: comments
+        data: comments,
       });
     } catch (error) {
       res.status(500).json({
         message: "Error al obtener los comentarios",
-        error
+        error,
       });
     }
   }
 
   // Obtener todos los comentarios
+  // NOTA: Para limpiar el código, este método también debería ir en el CommentService.
   static async getAll(req: Request, res: Response) {
     try {
-      const commentRepository = AppDataSource.getRepository(Comment);
-      
-      const comments = await commentRepository.find({
-        relations: ["task", "author"],
-        order: { createdAt: "DESC" } 
-      });
+      const comments = await commentService.getAllComments(); // ⭐️ Asumiendo que creas este método
       
       res.json({
         message: "Todos los comentarios se obtuvieron con éxito",
-        data: comments
+        data: comments,
       });
     } catch (error) {
       res.status(500).json({
         message: "Error al obtener los comentarios",
-        error
+        error,
       });
     }
   }
+
   // Actualizar comentario (solo content)
-static async update(req: Request, res: Response) {
-  try {
-    const { id } = req.params;
-    const { content } = req.body;
+  // NOTA: Este método también debería ir en el CommentService para posible Log de Actividad.
+  static async update(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { content } = req.body;
 
-    if (!content || !content.trim()) {
-      return res.status(400).json({ message: "El contenido no puede estar vacío" });
+      if (!content || !content.trim()) {
+        return res.status(400).json({ message: "El contenido no puede estar vacío" });
+      }
+
+      const updated = await commentService.updateComment(Number(id), content.trim()); // ⭐️ Asumiendo este método
+
+      res.json({ message: "Comentario actualizado", data: updated });
+    } catch (error) {
+      res.status(500).json({ message: "Error al actualizar comentario", error });
     }
-
-    const commentRepository = AppDataSource.getRepository(Comment);
-    const comment = await commentRepository.findOne({ where: { id: Number(id) } });
-
-    if (!comment) {
-      return res.status(404).json({ message: "Comentario no encontrado" });
-    }
-
-    comment.content = content.trim();
-    await commentRepository.save(comment);
-
-    // devolver con relaciones si querés
-    const updated = await commentRepository.findOne({
-      where: { id: comment.id },
-      relations: ["author", "task"],
-    });
-
-    res.json({ message: "Comentario actualizado", data: updated });
-  } catch (error) {
-    res.status(500).json({ message: "Error al actualizar comentario", error });
   }
-}
 
-// Eliminar comentario
-static async remove(req: Request, res: Response) {
-  try {
-    const { id } = req.params;
-    const commentRepository = AppDataSource.getRepository(Comment);
-
-    const comment = await commentRepository.findOne({ where: { id: Number(id) } });
-    if (!comment) {
-      return res.status(404).json({ message: "Comentario no encontrado" });
+  // Eliminar comentario
+  // NOTA: Este método también debería ir en el CommentService para posible Log de Actividad.
+  static async remove(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      
+      await commentService.removeComment(Number(id)); // ⭐️ Asumiendo este método
+      
+      res.json({ message: "Comentario eliminado" });
+    } catch (error) {
+      res.status(500).json({ message: "Error al eliminar comentario", error });
     }
-
-    await commentRepository.remove(comment);
-    res.json({ message: "Comentario eliminado" });
-  } catch (error) {
-    res.status(500).json({ message: "Error al eliminar comentario", error });
   }
-}
-
 }

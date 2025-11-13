@@ -5,6 +5,7 @@ import { Team } from "./Team";
 import { StatusHistory } from "./StatusHistory"; 
 import { TaskTag } from "./TaskTag";           
 import { Comment } from "./Comment";         
+import { Activity } from "./Activity";
 
 // Enums para los estados y prioridades
 export enum TaskStatus {
@@ -91,4 +92,7 @@ export class Task {
   // 2. Corregido: Relación con TaskTag (en lugar de ManyToMany con Tag)
   @OneToMany(() => TaskTag, (taskTag) => taskTag.task)
   taskTags!: TaskTag[];
+
+  @OneToMany(() => Activity, (activity) => activity.actor)
+  activities!: Activity[];
 }

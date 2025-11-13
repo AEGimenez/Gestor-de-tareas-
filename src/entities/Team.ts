@@ -1,5 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from "typeorm";
 import { User } from "./User";
+import { OneToMany } from "typeorm/decorator/relations/OneToMany";
+import { Activity } from "./Activity";
 
 @Entity("teams")
 export class Team {
@@ -24,4 +26,7 @@ export class Team {
 
   @UpdateDateColumn()
   updatedAt!: Date;
+
+  @OneToMany(() => Activity, (activity) => activity.actor)
+  activities!: Activity[];
 }

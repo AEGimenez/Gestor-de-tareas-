@@ -1,4 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from "typeorm";
+import { Activity } from "./Activity";
+import { OneToMany } from "typeorm/decorator/relations/OneToMany";
 
 @Entity("users")
 export class User {
@@ -22,4 +24,7 @@ export class User {
 
   @UpdateDateColumn()
   updatedAt!: Date;
+
+  @OneToMany(() => Activity, (activity) => activity.actor)
+  activities!: Activity[];
 }

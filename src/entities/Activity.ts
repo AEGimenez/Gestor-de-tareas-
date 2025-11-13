@@ -12,17 +12,19 @@ export class Activity {
   type!: string; // e.g., 'TASK_CREATED', 'COMMENT_ADDED', 'STATUS_CHANGED'
 
   @Column({ type: "text", nullable: true })
-  description!: string;
+  description?: string;
 
-  @ManyToOne(() => User, { nullable: true })
+  @ManyToOne(() => User, (user) => user.activities, { nullable: true })
   actor!: User;
 
-  @ManyToOne(() => Team, { nullable: true })
+  @ManyToOne(() => Team, (team) => team.activities, { nullable: true })
   team!: Team;
 
-  @ManyToOne(() => Task, { nullable: true })
+  @ManyToOne(() => Task, (task) => task.activities, { nullable: true })
   task!: Task;
 
   @CreateDateColumn()
   createdAt!: Date;
+
+  
 }
