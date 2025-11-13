@@ -249,7 +249,7 @@ export function TaskList() {
               ? "No hay tareas que coincidan con los filtros" 
               : "No hay tareas creadas"}
           </h3>
-          <p>Prueba a cambiar los filtros o crea una nueva tarea.</p>
+          <p>Prueba cambiar los filtros o crea una nueva tarea.</p>
         </div>
       )}
 

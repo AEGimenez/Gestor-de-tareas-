@@ -7,7 +7,7 @@ import { type TeamMembership } from '../types/team';
 import { getFullName, type User } from '../types/user'; 
 import { CommentSection } from '../components/CommentSection';
 import { HistorySection } from '../components/HistorySection';
-import { TagSection } from '../components/TagSection'; // <-- 1. IMPORTAR
+import { TagSection } from '../components/TagSection';
 
 // (allowedTransitions sigue igual)
 const allowedTransitions: Record<TaskStatus, TaskStatus[]> = {
@@ -35,17 +35,16 @@ export function TaskForm() {
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [isMembersLoading, setIsMembersLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // Carga de la tarea en modo edición
+  const [isLoading, setIsLoading] = useState(true); 
   const [error, setError] = useState<string | null>(null);
 
   // (useEffect para cargar datos en Modo Edición - Sigue igual)
   useEffect(() => {
     if (isEditMode && id) {
       setIsLoading(true); 
-      // (Ahora este GET /tasks/:id trae los 'taskTags' gracias al cambio en el backend)
       http.get<Task>(`/tasks/${id}`) 
         .then(data => {
-          setTaskData(data); // <-- Aquí se guardan los tags
+          setTaskData(data); 
           setTitle(data.title);
           setDescription(data.description || "");
           setStatus(data.status);
@@ -106,7 +105,7 @@ export function TaskForm() {
     taskData?.status === TaskStatus.COMPLETED || 
     taskData?.status === TaskStatus.CANCELLED;
 
-  // (handleSubmit - Sigue igual)
+  // --- LÓGICA DE handleSubmit RESTAURADA ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting || !currentUser) return;
@@ -115,10 +114,6 @@ export function TaskForm() {
 
     setIsSubmitting(true);
     setError(null);
-    
-    // NOTA: No necesitamos enviar los 'tagIds' aquí.
-    // El componente TagSection guarda sus propios cambios
-    // de forma independiente (lo cual es mejor para la UX).
     
     try {
       if (isEditMode) {
@@ -132,8 +127,7 @@ export function TaskForm() {
         };
         await http.patch(`/tasks/${id}`, payload);
         alert("¡Tarea actualizada exitosamente!");
-        // No navegamos, dejamos que el usuario guarde los tags si quiere
-        // navigate('/tasks'); 
+        navigate('/tasks');
         
       } else {
         // Lógica POST (Crear)
@@ -144,11 +138,8 @@ export function TaskForm() {
           teamId: Number(teamId),
           createdById: currentUser.id
         };
-        const newTask = await http.post<Task>('/tasks', payload);
+        await http.post('/tasks', payload);
         alert("¡Tarea creada exitosamente!");
-        
-        // TODO: En modo creación, deberíamos guardar los tags aquí si los hubiéramos seleccionado.
-        // Por ahora, solo redirigimos a la lista.
         navigate('/tasks');
       }
     } catch (err) {
@@ -159,6 +150,7 @@ export function TaskForm() {
       setIsSubmitting(false);
     }
   };
+  // --- FIN DE LA LÓGICA ---
 
 
   if (isLoading) return <div style={{ padding: '2rem' }}>Cargando tarea...</div>;
@@ -179,35 +171,55 @@ export function TaskForm() {
         </div>
       )}
 
-      {/* --- (El formulario <form> sigue exactamente igual) --- */}
+      {/* --- FORMULARIO COMPLETO RESTAURADO --- */}
       <form 
         onSubmit={handleSubmit} 
         style={{ backgroundColor: 'white', padding: '1.5rem 2rem', borderRadius: '8px', border: '1px solid #E5E7EB' }}
       >
-        {/* ... (Todos los inputs: Título, Descripción, Equipo, Status, Prioridad, Asignado, Vence) ... */}
-        {/* (Omitidos por brevedad, son iguales que antes) */}
-        
+        {/* Título */}
         <div style={{ marginBottom: '1rem' }}>
           <label htmlFor="title" style={labelStyle}>Título *</label>
           <input type="text" id="title" value={title} onChange={(e) => setTitle(e.target.value)} disabled={isTaskFinalized} style={inputStyle} />
         </div>
+        
+        {/* Descripción */}
         <div style={{ marginBottom: '1rem' }}>
           <label htmlFor="description" style={labelStyle}>Descripción</label>
           <textarea id="description" rows={5} value={description} onChange={(e) => setDescription(e.target.value)} disabled={isTaskFinalized} style={inputStyle} />
         </div>
+        
+        {/* Selector de Equipo */}
         <div style={{ marginBottom: '1rem' }}>
           <label htmlFor="teamId" style={labelStyle}>Equipo *</label>
-          <select id="teamId" value={teamId} onChange={(e) => setTeamId(e.target.value)} disabled={isTaskFinalized || (isLoading && !isEditMode)} style={inputStyle}>
+          <select 
+            id="teamId" 
+            value={teamId} 
+            onChange={(e) => setTeamId(e.target.value)} 
+            disabled={isTaskFinalized || (isLoading && !isEditMode)}
+            style={inputStyle}
+          >
             <option value="">Seleccionar un equipo...</option>
-            {memberships.filter(m => m.team).map(m => (
-              <option key={m.team!.id} value={m.team!.id}>{m.team!.name}</option>
+            {memberships
+              .filter(m => m.team) 
+              .map(m => (
+                <option key={m.team!.id} value={m.team!.id}>
+                  {m.team!.name}
+                </option>
             ))}
           </select>
         </div>
+        
+        {/* Fila de Status y Prioridad */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
           <div>
             <label htmlFor="status" style={labelStyle}>Estado *</label>
-            <select id="status" value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)} disabled={isTaskFinalized} style={inputStyle}>
+            <select 
+              id="status" 
+              value={status} 
+              onChange={(e) => setStatus(e.target.value as TaskStatus)} 
+              disabled={isTaskFinalized} 
+              style={inputStyle}
+            >
               {isEditMode ? (
                 <>
                   <option value={taskData?.status}>{status}</option> 
@@ -232,13 +244,25 @@ export function TaskForm() {
             </select>
           </div>
         </div>
+
+        {/* Fila de Asignado y Vence */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
           <div>
             <label htmlFor="assignedToId" style={labelStyle}>Asignado a</label>
-            <select id="assignedToId" value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)} disabled={isTaskFinalized || !teamId || isMembersLoading} style={inputStyle}>
-              <option value="">{isMembersLoading ? "Cargando miembros..." : (teamId ? "Sin asignar" : "Selecciona un equipo primero")}</option>
+            <select 
+              id="assignedToId" 
+              value={assignedToId} 
+              onChange={(e) => setAssignedToId(e.target.value)} 
+              disabled={isTaskFinalized || !teamId || isMembersLoading} 
+              style={inputStyle}
+            >
+              <option value="">
+                {isMembersLoading ? "Cargando miembros..." : (teamId ? "Sin asignar" : "Selecciona un equipo primero")}
+              </option>
               {teamMembers.map(user => (
-                <option key={user.id} value={user.id}>{getFullName(user)}</option>
+                <option key={user.id} value={user.id}>
+                  {getFullName(user)}
+                </option>
               ))}
             </select>
           </div>
@@ -247,11 +271,10 @@ export function TaskForm() {
             <input type="date" id="dueDate" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={isTaskFinalized} style={inputStyle} />
           </div>
         </div>
+        {/* --- FIN DEL FORMULARIO --- */}
 
-        
+        {/* Botones de Acción y Error */}
         {error && ( <div style={{ color: 'red', marginBottom: '1rem', fontWeight: 'bold' }}> Error: {error} </div> )}
-        
-        {/* Botones de Acción */}
         <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
           <button type="button" onClick={() => navigate('/tasks')} style={{ padding: '0.5rem 1rem', backgroundColor: '#F3F4F6', border: '1px solid #D1D5DB', borderRadius: '6px', cursor: 'pointer' }}>
             {isTaskFinalized ? "Cerrar" : "Cancelar"}
@@ -265,12 +288,9 @@ export function TaskForm() {
       </form>
 
       {/* --- SECCIONES DE DETALLE --- */}
-      {isEditMode && taskData && ( // <-- 3. Asegurarse de que taskData exista
+      {isEditMode && taskData && (
         <>
-          {/* --- 2. INTEGRAR LA SECCIÓN DE ETIQUETAS --- */}
-          {/* (Quitamos isTaskFinalized, TagSection no lo necesita) */}
           <TagSection task={taskData} />
-
           <CommentSection taskId={taskIdAsNumber} />
           <HistorySection taskId={taskIdAsNumber} />
         </>
