@@ -76,6 +76,69 @@ function PriorityBadge({ priority }: { priority: TaskPriority }) {
   return <span style={style}>{priority}</span>;
 }
 
+// ---- Helpers para mostrar notificaciones más prolijas ----
+
+function capitalize(value?: string) {
+  if (!value) return '';
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function getEventLabel(type: string) {
+  switch (type) {
+    case 'comment':
+    case 'COMMENT':
+      return 'Nuevo comentario';
+    case 'statusChange':
+    case 'STATUS_CHANGE':
+      return 'Cambio de estado';
+    case 'priorityChange':
+    case 'PRIORITY_CHANGE':
+      return 'Cambio de prioridad';
+    default:
+      return type;
+  }
+}
+
+function getEventDescription(notif: NotificationItem) {
+  const { eventType, payload } = notif;
+
+  if (!payload) return '';
+
+  // Comentario
+  if (eventType === 'comment' || eventType === 'COMMENT') {
+    if (typeof payload.content === 'string' && payload.content.trim()) {
+      const text =
+        payload.content.length > 80
+          ? payload.content.slice(0, 77) + '...'
+          : payload.content;
+      return `Comentario: "${text}"`;
+    }
+    return 'Se agregó un nuevo comentario.';
+  }
+
+  // Cambio de estado
+  if (eventType === 'statusChange' || eventType === 'STATUS_CHANGE') {
+    const prev = payload.previousStatus ?? payload.previous ?? '';
+    const next = payload.newStatus ?? payload.current ?? '';
+    if (prev && next) {
+      return `Estado cambiado de "${prev}" a "${next}".`;
+    }
+    return 'Se cambió el estado de la tarea.';
+  }
+
+  // Cambio de prioridad
+  if (eventType === 'priorityChange' || eventType === 'PRIORITY_CHANGE') {
+    const prev = payload.previousPriority ?? payload.previous ?? '';
+    const next = payload.newPriority ?? payload.current ?? '';
+    if (prev && next) {
+      return `Prioridad cambiada de ${capitalize(prev)} a ${capitalize(next)}.`;
+    }
+    return 'Se cambió la prioridad de la tarea.';
+  }
+
+  return '';
+}
+
 export function WatchersPage() {
   const { currentUser } = useUser();
 
@@ -392,9 +455,7 @@ export function WatchersPage() {
                     <td style={tdStyle}>{formatDateTime(item.lastUpdateAt)}</td>
                     <td style={tdStyle}>
                       {item.isOverdue && (
-                        <span
-                          style={badgeStyle('#FEE2E2', '#B91C1C')}
-                        >
+                        <span style={badgeStyle('#FEE2E2', '#B91C1C')}>
                           ⏰ Vencida
                         </span>
                       )}
@@ -572,8 +633,11 @@ export function WatchersPage() {
                       ) : (
                         'Tarea'
                       )}
-                    </strong>{' '}
-                    — {notif.eventType}
+                    </strong>
+                    {' — '}
+                    <span style={{ fontWeight: 500 }}>
+                      {getEventLabel(notif.eventType)}
+                    </span>
                   </div>
                   <span
                     style={{
@@ -585,20 +649,16 @@ export function WatchersPage() {
                   </span>
                 </div>
 
-                {notif.payload && (
-                  <pre
+                {getEventDescription(notif) && (
+                  <p
                     style={{
                       margin: 0,
-                      fontSize: '0.75rem',
+                      fontSize: '0.8rem',
                       color: '#6B7280',
-                      backgroundColor: '#F9FAFB',
-                      padding: '0.5rem',
-                      borderRadius: 6,
-                      whiteSpace: 'pre-wrap',
                     }}
                   >
-                    {JSON.stringify(notif.payload, null, 2)}
-                  </pre>
+                    {getEventDescription(notif)}
+                  </p>
                 )}
               </li>
             ))}
