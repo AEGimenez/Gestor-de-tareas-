@@ -16,6 +16,35 @@ export class InitFullModel1762796023777 implements MigrationInterface {
         await queryRunner.query(`CREATE TYPE "public"."tasks_priority_enum" AS ENUM('alta', 'media', 'baja')`);
         await queryRunner.query(`CREATE TABLE "tasks" ("id" SERIAL NOT NULL, "title" character varying NOT NULL, "description" text, "status" "public"."tasks_status_enum" NOT NULL DEFAULT 'pendiente', "priority" "public"."tasks_priority_enum" NOT NULL DEFAULT 'media', "dueDate" TIMESTAMP, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP NOT NULL DEFAULT now(), "team_id" integer NOT NULL, "created_by" integer NOT NULL, "assigned_to" integer, CONSTRAINT "PK_8d12ff38fcc62aaba2cab748772" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE TABLE "activity" ("id" SERIAL NOT NULL, "type" character varying NOT NULL, "description" text, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "actorId" integer, "teamId" integer, "taskId" integer, CONSTRAINT "PK_24625a1d6b1b089c8ae206fe467" PRIMARY KEY ("id"))`);
+
+        /* ⭐ NUEVAS TABLAS PARA WATCHERS ⭐ */
+
+        await queryRunner.query(`
+            CREATE TABLE "task_watchers" (
+                "id" SERIAL NOT NULL,
+                "task_id" integer NOT NULL,
+                "user_id" integer NOT NULL,
+                "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+                "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+                CONSTRAINT "UQ_task_watchers_task_user" UNIQUE ("task_id", "user_id"),
+                CONSTRAINT "PK_task_watchers_id" PRIMARY KEY ("id")
+            )
+        `);
+
+        await queryRunner.query(`
+            CREATE TABLE "task_watcher_notifications" (
+                "id" SERIAL NOT NULL,
+                "user_id" integer NOT NULL,
+                "task_id" integer NOT NULL,
+                "eventType" character varying NOT NULL,
+                "payload" jsonb,
+                "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+                "readAt" TIMESTAMP,
+                CONSTRAINT "PK_task_watcher_notifications_id" PRIMARY KEY ("id")
+            )
+        `);
+
+        /* 🔗 FOREIGN KEYS EXISTENTES */
         await queryRunner.query(`ALTER TABLE "teams" ADD CONSTRAINT "FK_03655bd3d01df69022646faffd5" FOREIGN KEY ("owner_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "team_memberships" ADD CONSTRAINT "FK_c9eb2ded8e0e2f4bcb41fd0984a" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "team_memberships" ADD CONSTRAINT "FK_b917b8603c6d5c526fcdb2009de" FOREIGN KEY ("team_id") REFERENCES "teams"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
@@ -31,9 +60,48 @@ export class InitFullModel1762796023777 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "activity" ADD CONSTRAINT "FK_52ea3a7ddc66851abf6138892bc" FOREIGN KEY ("actorId") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "activity" ADD CONSTRAINT "FK_d26804bd34b21eecb76a29fec4a" FOREIGN KEY ("teamId") REFERENCES "teams"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "activity" ADD CONSTRAINT "FK_2743f8990fde12f9586287eb09f" FOREIGN KEY ("taskId") REFERENCES "tasks"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+
+        /* 🔗 FOREIGN KEYS NUEVAS PARA WATCHERS */
+        await queryRunner.query(`
+            ALTER TABLE "task_watchers"
+            ADD CONSTRAINT "FK_task_watchers_task"
+            FOREIGN KEY ("task_id") REFERENCES "tasks"("id")
+            ON DELETE CASCADE ON UPDATE NO ACTION
+        `);
+
+        await queryRunner.query(`
+            ALTER TABLE "task_watchers"
+            ADD CONSTRAINT "FK_task_watchers_user"
+            FOREIGN KEY ("user_id") REFERENCES "users"("id")
+            ON DELETE CASCADE ON UPDATE NO ACTION
+        `);
+
+        await queryRunner.query(`
+            ALTER TABLE "task_watcher_notifications"
+            ADD CONSTRAINT "FK_task_watcher_notifications_user"
+            FOREIGN KEY ("user_id") REFERENCES "users"("id")
+            ON DELETE CASCADE ON UPDATE NO ACTION
+        `);
+
+        await queryRunner.query(`
+            ALTER TABLE "task_watcher_notifications"
+            ADD CONSTRAINT "FK_task_watcher_notifications_task"
+            FOREIGN KEY ("task_id") REFERENCES "tasks"("id")
+            ON DELETE CASCADE ON UPDATE NO ACTION
+        `);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
+        /* 🔽 PRIMERO DROPEAMOS LAS FKs NUEVAS Y TABLAS WATCHERS */
+        await queryRunner.query(`ALTER TABLE "task_watcher_notifications" DROP CONSTRAINT "FK_task_watcher_notifications_task"`);
+        await queryRunner.query(`ALTER TABLE "task_watcher_notifications" DROP CONSTRAINT "FK_task_watcher_notifications_user"`);
+        await queryRunner.query(`ALTER TABLE "task_watchers" DROP CONSTRAINT "FK_task_watchers_user"`);
+        await queryRunner.query(`ALTER TABLE "task_watchers" DROP CONSTRAINT "FK_task_watchers_task"`);
+
+        await queryRunner.query(`DROP TABLE "task_watcher_notifications"`);
+        await queryRunner.query(`DROP TABLE "task_watchers"`);
+
+        /* 🔽 DESPUÉS TODO LO EXISTENTE (como ya lo tenías) */
         await queryRunner.query(`ALTER TABLE "activity" DROP CONSTRAINT "FK_2743f8990fde12f9586287eb09f"`);
         await queryRunner.query(`ALTER TABLE "activity" DROP CONSTRAINT "FK_d26804bd34b21eecb76a29fec4a"`);
         await queryRunner.query(`ALTER TABLE "activity" DROP CONSTRAINT "FK_52ea3a7ddc66851abf6138892bc"`);
@@ -62,5 +130,4 @@ export class InitFullModel1762796023777 implements MigrationInterface {
         await queryRunner.query(`DROP TABLE "teams"`);
         await queryRunner.query(`DROP TABLE "users"`);
     }
-
 }

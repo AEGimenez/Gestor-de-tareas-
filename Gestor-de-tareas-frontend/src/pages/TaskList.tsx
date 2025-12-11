@@ -478,7 +478,7 @@ const buttonStyle: React.CSSProperties = {
   padding: '0.5rem 1rem',
   fontSize: '1rem',
   color: 'white',
-  backgroundColor: '#3B82F6',
+  backgroundColor: '#234b81ff',
   border: 'none',
   borderRadius: '6px',
   cursor: 'pointer'

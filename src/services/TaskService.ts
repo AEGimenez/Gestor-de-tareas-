@@ -7,6 +7,8 @@ import { Tag } from "../entities/Tag";
 import { TaskTag } from "../entities/TaskTag"; 
 import { ActivityService, ActivityType } from "./ActivityService"; 
 import { In, Like, FindOptionsWhere, Between, MoreThanOrEqual, LessThanOrEqual } from "typeorm"; 
+import { TaskWatcherService } from "./TaskWatcherService";
+import { WatcherEventType } from "../entities/TaskWatcherNotification";
 
 
 // Un objeto para definir las transiciones de estado válidas
@@ -49,7 +51,7 @@ export class TaskService {
   private teamRepository = AppDataSource.getRepository(Team); 
   private tagRepository = AppDataSource.getRepository(Tag);
   private taskTagRepository = AppDataSource.getRepository(TaskTag);
-
+  private taskWatcherService = new TaskWatcherService();  
 
   // --- 3. MÉTODO GETALLTASKS (ACTUALIZADO con Paginación) ---
   async getAllTasks(filters: ITaskFilters): Promise<PaginatedResponse<Task>> {
@@ -146,71 +148,105 @@ export class TaskService {
     return savedTask;
   }
 
-  // --- 5. MÉTODO updateTask (Sigue igual) ---
-async updateTask(id: number, updates: Partial<Task>, changedById: number): Promise<Task> {
-    const task = await this.taskRepository.findOneBy({ id });
+  // --- 5. MÉTODO updateTask (ahora con notificaciones a watchers) ---
+  async updateTask(id: number, updates: Partial<Task>, changedById: number): Promise<Task> {
+    const task = await this.taskRepository.findOneBy({ id });
 
-    if (!task) {
-      throw new Error("Tarea no encontrada");
-    }
+    if (!task) {
+      throw new Error("Tarea no encontrada");
+    }
 
-    // ... (REGLA DE NEGOCIO 1: Restricciones de edición)
-    // ... (REGLA DE NEGOCIO 2: Transiciones de estado válidas)
-    
-    const isStatusChanged = updates.status && updates.status !== task.status;
-    const previousStatus = task.status;
+    // ----------------------------------------------------------------
+    // REGLAS DE NEGOCIO (dejá acá la lógica que ya tenías)
+    // ----------------------------------------------------------------
+    // ... (REGLA DE NEGOCIO 1: Restricciones de edición)
+    // ... (REGLA DE NEGOCIO 2: Transiciones de estado válidas usando allowedTransitions)
+    // ... (REGLA DE NEGOCIO 3: Validación de fecha límite no pasada)
+    // ----------------------------------------------------------------
 
-    // Actualiza los campos de la tarea
-    Object.assign(task, updates); 
-    
-    // Manejo de la relación assignedTo (si se actualiza)
-    if ((updates as any).assignedToId !== undefined) {
-        task.assignedTo = (updates as any).assignedToId ? { id: (updates as any).assignedToId } as User : undefined;
-    }
-    
-    // ... (REGLA DE NEGOCIO 3: Validación de fecha límite no pasada)
+    const isStatusChanged =
+      updates.status !== undefined && updates.status !== task.status;
+    const isPriorityChanged =
+      updates.priority !== undefined && updates.priority !== task.priority;
 
-    const updatedTask = await this.taskRepository.save(task);
+    const previousStatus = task.status;
+    const previousPriority = task.priority;
 
-    // ----------------------------------------------------
-    // ⭐️ LOG DE ACTIVIDAD
-    // ----------------------------------------------------
-    
-    let activityType: ActivityType | null = null;
-    let activityDescription: string = "";
+    // Actualiza los campos de la tarea
+    Object.assign(task, updates);
 
-    if (isStatusChanged) {
-        // 1. Guardar en StatusHistory (como ya lo tenías)
-        const historyEntry = this.statusHistoryRepository.create({
-            task: updatedTask,
-            previousStatus: previousStatus,
-            newStatus: updatedTask.status,
-            changedBy: { id: changedById } as User,
-        });
-        await this.statusHistoryRepository.save(historyEntry);
+    // Manejo de la relación assignedTo (si se actualiza)
+    if ((updates as any).assignedToId !== undefined) {
+      task.assignedTo = (updates as any).assignedToId
+        ? ({ id: (updates as any).assignedToId } as User)
+        : undefined;
+    }
 
-        // 2. Definir actividad para cambio de estado
-        activityType = ActivityType.STATUS_CHANGED;
-        activityDescription = `Estado de "${updatedTask.title}" cambiado de '${previousStatus}' a '${updatedTask.status}'.`;
-    } else if (Object.keys(updates).some(key => key !== 'changedById')) { // Si se actualizó algún otro campo
-        activityType = ActivityType.TASK_UPDATED;
-        activityDescription = `Tarea "${updatedTask.title}" actualizada.`;
-    }
+    const updatedTask = await this.taskRepository.save(task);
 
-    // 3. Crear registro de actividad
-    if (activityType) {
-        await this.activityService.createActivity({
-            type: activityType,
-            description: activityDescription,
-            actorId: changedById, // El usuario que realizó el cambio
-            teamId: updatedTask.teamId,
-            taskId: updatedTask.id,
-        });
-    }
+    // ----------------------------------------------------
+    // ⭐️ LOG DE ACTIVIDAD
+    // ----------------------------------------------------
+    let activityType: ActivityType | null = null;
+    let activityDescription = "";
 
-    return updatedTask;
-  }
+    if (isStatusChanged) {
+      // 1. Guardar en StatusHistory (como ya lo tenías)
+      const historyEntry = this.statusHistoryRepository.create({
+        task: updatedTask,
+        previousStatus: previousStatus,
+        newStatus: updatedTask.status,
+        changedBy: { id: changedById } as User,
+      });
+      await this.statusHistoryRepository.save(historyEntry);
 
-  // --- 6. MÉTODO updateTaskTags (Sigue igual) ---
-  async updateTaskTags(taskId: number, tagIds: number[]): Promise<void> { /* ... */ }
+      // 2. Definir actividad para cambio de estado
+      activityType = ActivityType.STATUS_CHANGED;
+      activityDescription = `Estado de "${updatedTask.title}" cambiado de '${previousStatus}' a '${updatedTask.status}'.`;
+    } else if (Object.keys(updates).some((key) => key !== "changedById")) {
+      // Si se actualizó algún otro campo
+      activityType = ActivityType.TASK_UPDATED;
+      activityDescription = `Tarea "${updatedTask.title}" actualizada.`;
+    }
+
+    // 3. Crear registro de actividad
+    if (activityType) {
+      await this.activityService.createActivity({
+        type: activityType,
+        description: activityDescription,
+        actorId: changedById, // El usuario que realizó el cambio
+        teamId: updatedTask.teamId,
+        taskId: updatedTask.id,
+      });
+    }
+
+    // ----------------------------------------------------
+    // ⭐️ NOTIFICACIONES A WATCHERS
+    // ----------------------------------------------------
+    if (isStatusChanged) {
+      await this.taskWatcherService.notifyWatchers(
+        updatedTask.id,
+        WatcherEventType.STATUS_CHANGE,
+        changedById,
+        {
+          previousStatus,
+          newStatus: updatedTask.status,
+        }
+      );
+    }
+
+    if (isPriorityChanged) {
+      await this.taskWatcherService.notifyWatchers(
+        updatedTask.id,
+        WatcherEventType.PRIORITY_CHANGE,
+        changedById,
+        {
+          previousPriority,
+          newPriority: updatedTask.priority,
+        }
+      );
+    }
+
+    return updatedTask;
+  }
 }

@@ -5,6 +5,7 @@ import { TeamList } from './src/pages/TeamList';
 import { TeamDetail } from './src/pages/TeamDetail';
 import { TaskForm } from './src/pages/TaskForm'; 
 import { ActivityList } from './src/pages/ActivityList';
+import { WatchersPage } from './src/pages/WatchersPage';
 
 // (MainLayout sigue igual)
 function MainLayout() {
@@ -29,6 +30,7 @@ function App() {
         <Route path="/tasks/:id" element={<TaskForm />} /> 
         <Route path="/teams" element={<TeamList />} /> 
         <Route path="/teams/:id" element={<TeamDetail />} />
+        <Route path="/watchers" element={<WatchersPage />} />
         
         {/* --- 2. CONECTAR LA RUTA /ACTIVITY --- */}
         <Route path="/activity" element={<ActivityList />} /> 

@@ -188,3 +188,49 @@ Content-Type: application/json
 ###------------------ Borrado de equipos -----------------###
 ### Fallo al intentar borrar equipo con tareas activas. Rta esperada 400 bad request
 DELETE http://localhost:3000/teams/3
+
+
+### Suscribirse a una tarea
+POST http://localhost:3000/tasks/1/watchers
+Content-Type: application/json
+
+{
+  "userId": 2,
+  "actorId": 2
+}
+
+### Listar watchers de una tarea
+GET http://localhost:3000/tasks/1/watchers
+
+### Cambiar estado de tarea (dispara notificación)
+PATCH http://localhost:3000/tasks/1
+Content-Type: application/json
+
+{
+  "status": "IN_PROGRESS"
+}
+
+### Agregar comentario (dispara notificación)
+POST http://localhost:3000/comments
+Content-Type: application/json
+
+{
+  "content": "Arranco con esta tarea.",
+  "taskId": 1,
+  "authorId": 3
+}
+
+### Ver notificaciones del watcher
+GET http://localhost:3000/watchers/notifications?userId=2
+
+### Ver watchlist del usuario
+GET http://localhost:3000/watchers/watchlist?userId=2
+
+### Marcar notificaciones como leídas
+PATCH http://localhost:3000/watchers/notifications/read
+Content-Type: application/json
+
+{
+  "userId": 2,
+  "notificationIds": [1, 2, 3]
+}

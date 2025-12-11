@@ -12,6 +12,8 @@ export enum ActivityType {
   COMMENT_ADDED = "COMMENT_ADDED",
   TEAM_CREATED = "TEAM_CREATED",
   MEMBER_ADDED = "MEMBER_ADDED",
+  WATCHER_ADDED = "WATCHER_ADDED",
+  WATCHER_REMOVED = "WATCHER_REMOVED",
 }
 
 export interface ActivityData {
@@ -21,6 +23,9 @@ export interface ActivityData {
   teamId?: number;
   taskId?: number;
 }
+
+
+
 
 export class ActivityService {
   private activityRepository = AppDataSource.getRepository(Activity);

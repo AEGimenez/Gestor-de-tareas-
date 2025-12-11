@@ -2,8 +2,8 @@
   "openapi": "3.0.0",
   "info": {
     "title": "Gestor de Tareas API",
-    "description": "API REST para la gestión de tareas, equipos y usuarios.",
-    "version": "1.0.0"
+    "description": "API REST para la gestión de tareas, equipos, usuarios y watchers con notificaciones.",
+    "version": "1.1.0"
   },
   "servers": [
     {
@@ -32,6 +32,7 @@
         }
       }
     },
+
     "/tasks": {
       "get": {
         "summary": "Listar todas las tareas",
@@ -40,6 +41,154 @@
           "200": {
             "description": "Una lista de tareas"
           }
+        }
+      }
+    },
+
+    "/tasks/{taskId}/watchers": {
+      "get": {
+        "summary": "Listar watchers de una tarea",
+        "tags": ["Watchers"],
+        "parameters": [
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Lista de watchers" }
+        }
+      },
+      "post": {
+        "summary": "Suscribirse a una tarea",
+        "tags": ["Watchers"],
+        "parameters": [
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "userId": { "type": "integer" },
+                  "actorId": { "type": "integer" }
+                },
+                "required": ["userId", "actorId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Watcher creado" },
+          "409": { "description": "Usuario ya suscripto" },
+          "422": { "description": "Usuario no pertenece al equipo" }
+        }
+      }
+    },
+
+    "/tasks/{taskId}/watchers/{userId}": {
+      "delete": {
+        "summary": "Desuscribirse de una tarea",
+        "tags": ["Watchers"],
+        "parameters": [
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorId": { "type": "integer" }
+                },
+                "required": ["actorId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Watcher eliminado" },
+          "404": { "description": "Watcher no encontrado" }
+        }
+      }
+    },
+
+    "/watchers/watchlist": {
+      "get": {
+        "summary": "Obtener watchlist del usuario",
+        "tags": ["Watchers"],
+        "parameters": [
+          { "name": "userId", "in": "query", "required": true, "schema": { "type": "integer" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "teamId", "in": "query", "schema": { "type": "integer" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Watchlist paginada del usuario" }
+        }
+      }
+    },
+
+    "/watchers/notifications": {
+      "get": {
+        "summary": "Obtener notificaciones del usuario",
+        "tags": ["Watchers"],
+        "parameters": [
+          { "name": "userId", "in": "query", "required": true, "schema": { "type": "integer" } },
+          { "name": "unreadOnly", "in": "query", "schema": { "type": "boolean" } }
+        ],
+        "responses": {
+          "200": { "description": "Lista de notificaciones" }
+        }
+      }
+    },
+
+    "/watchers/notifications/read": {
+      "patch": {
+        "summary": "Marcar notificaciones como leídas",
+        "tags": ["Watchers"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "userId": { "type": "integer" },
+                  "notificationIds": {
+                    "type": "array",
+                    "items": { "type": "integer" }
+                  }
+                },
+                "required": ["userId", "notificationIds"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Notificaciones marcadas como leídas" }
         }
       }
     }
