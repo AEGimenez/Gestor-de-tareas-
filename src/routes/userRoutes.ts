@@ -13,7 +13,7 @@ router.post("/", UserController.create);
 router.put("/:id", UserController.update);
 
 // DELETE /users/:id - Borrar un usuario
-router.delete("/:id", UserController.delete);
+router.delete("/:id", UserController.remove);
 
 
 export default router;

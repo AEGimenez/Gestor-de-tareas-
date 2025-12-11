@@ -51,22 +51,33 @@ export class CommentController {
   // Obtener comentarios de una tarea específica
   // NOTA: Para limpiar el código, este método también debería ir en el CommentService.
   static async getByTask(req: Request, res: Response) {
-    try {
-      const { taskId } = req.params;
-      
-      const comments = await commentService.getCommentsByTaskId(parseInt(taskId)); // ⭐️ Asumiendo que creas este método
-      
-      res.json({
-        message: "Los comentarios se obtuvieron con éxito",
-        data: comments,
-      });
-    } catch (error) {
-      res.status(500).json({
-        message: "Error al obtener los comentarios",
-        error,
-      });
+  try {
+    const { taskId } = req.params;
+    const numericTaskId = Number(taskId);
+
+    // Validación básica del parámetro
+    if (!numericTaskId || Number.isNaN(numericTaskId)) {
+      return res
+        .status(400)
+        .json({ message: "taskId inválido para obtener comentarios" });
     }
+
+    // Usa el service, que a su vez usa el repositorio de TypeORM
+    const comments = await commentService.getCommentsByTaskId(numericTaskId);
+
+    return res.json({
+      message: "Los comentarios se obtuvieron con éxito",
+      data: comments,
+    });
+  } catch (error) {
+    console.error("Error en CommentController.getByTask:", error);
+    return res.status(500).json({
+      message: "Error al obtener los comentarios",
+      error:
+        error instanceof Error ? error.message : "Error interno desconocido",
+    });
   }
+}
 
   // Obtener todos los comentarios
   // NOTA: Para limpiar el código, este método también debería ir en el CommentService.

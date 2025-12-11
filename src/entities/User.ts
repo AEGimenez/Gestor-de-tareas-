@@ -10,7 +10,7 @@ export class User {
   @Column({ unique: true })
   email!: string;
 
-  @Column()
+  @Column({ select: false })
   password!: string;
 
   @Column()
@@ -24,6 +24,7 @@ export class User {
 
   @UpdateDateColumn()
   updatedAt!: Date;
+
 
   @OneToMany(() => Activity, (activity) => activity.actor)
   activities!: Activity[];

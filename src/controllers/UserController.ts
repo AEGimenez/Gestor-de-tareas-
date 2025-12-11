@@ -2,118 +2,156 @@ import { Request, Response } from "express";
 import { AppDataSource } from "../config/database";
 import { User } from "../entities/User";
 
+const userRepository = AppDataSource.getRepository(User);
+
+// Helper para limpiar la contraseña del objeto
+const toSafeUser = (user: User) => {
+  const { password, ...rest } = user as any;
+  return rest;
+};
+
 export class UserController {
-  // Obtener todos los usuarios
+  // GET /users
   static async getAll(req: Request, res: Response) {
     try {
-      const userRepository = AppDataSource.getRepository(User);
-      const users = await userRepository.find();
-       
+      const users = await userRepository.find(); // password NO se selecciona por select:false
+      const safeUsers = users.map(toSafeUser);
+
       res.json({
         message: "Se obtuvieron todos los usuarios",
-        data: users
+        data: safeUsers,
       });
     } catch (error) {
       res.status(500).json({
         message: "No se pudieron obtener los usuarios",
-        error
+        error,
       });
     }
   }
 
-  // Crear un nuevo usuario
+  // GET /users/:id
+  static async getById(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+
+      const user = await userRepository.findOne({ where: { id } });
+      if (!user) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      res.json({
+        message: "Usuario obtenido con éxito",
+        data: toSafeUser(user),
+      });
+    } catch (error) {
+      res.status(500).json({
+        message: "No se pudo obtener el usuario",
+        error,
+      });
+    }
+  }
+
+  // POST /users
   static async create(req: Request, res: Response) {
     try {
       const { email, password, firstName, lastName } = req.body;
-      
-      const userRepository = AppDataSource.getRepository(User);
-      
-      // Crear nueva instancia de usuario
-      const newUser = userRepository.create({
+
+      if (!email || !password || !firstName || !lastName) {
+        return res.status(400).json({
+          message: "email, password, firstName y lastName son obligatorios",
+        });
+      }
+
+      const existing = await userRepository.findOne({ where: { email } });
+      if (existing) {
+        return res
+          .status(409)
+          .json({ message: "Ya existe un usuario con ese email" });
+      }
+
+      const user = userRepository.create({
         email,
-        password, 
+        password, // acá podrías hashear la contraseña en el futuro
         firstName,
-        lastName
+        lastName,
       });
 
-      // Guardar en la base de datos
-      const savedUser = await userRepository.save(newUser);
-      
+      const saved = await userRepository.save(user);
+
       res.status(201).json({
         message: "Usuario creado con éxito",
-        data: savedUser
+        data: toSafeUser(saved), // 👈 no devolvemos password
       });
     } catch (error) {
       res.status(500).json({
         message: "No se pudo crear el usuario",
-        error
+        error,
       });
     }
   }
-  // Actualizar un usuario existente
-static async update(req: Request, res: Response) {
-  try {
-    const { id } = req.params;  // ID del usuario a actualizar
-    const { email, password, firstName, lastName } = req.body;
 
-    const userRepository = AppDataSource.getRepository(User);
+  // PUT /users/:id
+  static async update(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
 
-    // Verificar que el usuario existe
-    const user = await userRepository.findOne({ where: { id: parseInt(id) } });
-    if (!user) {
-      return res.status(404).json({
-        message: "Usuario no encontrado"
+      const { email, password, firstName, lastName } = req.body;
+
+      const user = await userRepository.findOne({ where: { id } });
+      if (!user) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      if (email !== undefined) user.email = email;
+      if (firstName !== undefined) user.firstName = firstName;
+      if (lastName !== undefined) user.lastName = lastName;
+      if (password !== undefined) {
+        user.password = password; // idem: acá podrías hashearla
+      }
+
+      const updated = await userRepository.save(user);
+
+      res.json({
+        message: "Usuario actualizado con éxito",
+        data: toSafeUser(updated), // 👈 también sin password
+      });
+    } catch (error) {
+      res.status(500).json({
+        message: "No se pudo actualizar el usuario",
+        error,
       });
     }
-
-    // Actualizar los campos (solo si se enviaron en el body)
-    user.email = email ?? user.email;
-    user.password = password ?? user.password;
-    user.firstName = firstName ?? user.firstName;
-    user.lastName = lastName ?? user.lastName;
-
-    // Guardar cambios
-    const updatedUser = await userRepository.save(user);
-
-    res.json({
-      message: "Usuario actualizado con éxito",
-      data: updatedUser
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: "No se pudo actualizar el usuario",
-      error
-    });
   }
-}
-// Borrar un usuario existente
-static async delete(req: Request, res: Response) {
-  try {
-    const { id } = req.params;
 
-    const userRepository = AppDataSource.getRepository(User);
+  // DELETE /users/:id
+  static async remove(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
 
-    // Verificar si existe el usuario
-    const user = await userRepository.findOne({ where: { id: parseInt(id) } });
-    if (!user) {
-      return res.status(404).json({
-        message: "Usuario no encontrado"
+      const user = await userRepository.findOne({ where: { id } });
+      if (!user) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      await userRepository.remove(user);
+
+      res.json({
+        message: "Usuario eliminado con éxito",
+      });
+    } catch (error) {
+      res.status(500).json({
+        message: "No se pudo eliminar el usuario",
+        error,
       });
     }
-
-    // Eliminar usuario
-    await userRepository.remove(user);
-
-    res.json({
-      message: "Usuario eliminado con éxito"
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: "No se pudo eliminar el usuario",
-      error
-    });
   }
-}
-
-
 }
